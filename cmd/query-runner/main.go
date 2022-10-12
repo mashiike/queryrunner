@@ -201,7 +201,7 @@ func _main() error {
 			case "vertical":
 				io.WriteString(os.Stdout, result.ToVertical())
 			default:
-				io.WriteString(os.Stdout, result.ToJSON())
+				io.WriteString(os.Stdout, result.ToJSONLines())
 			}
 			return nil
 		})

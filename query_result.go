@@ -132,7 +132,7 @@ func (qr *QueryResult) ToMarkdownTable() string {
 	)
 }
 
-func (qr *QueryResult) ToJSON() string {
+func (qr *QueryResult) ToJSONLines() string {
 	var builder strings.Builder
 	encoder := json.NewEncoder(&builder)
 	for _, row := range qr.Rows {
@@ -172,6 +172,6 @@ func (qr *QueryResult) MarshalCTYValue() cty.Value {
 		"markdown_table":   cty.StringVal(qr.ToMarkdownTable()),
 		"borderless_table": cty.StringVal(qr.ToBorderlessTable()),
 		"vertical_table":   cty.StringVal(qr.ToVertical()),
-		"json_lines":       cty.StringVal(qr.ToJSON()),
+		"json_lines":       cty.StringVal(qr.ToJSONLines()),
 	})
 }
