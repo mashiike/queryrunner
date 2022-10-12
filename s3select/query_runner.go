@@ -350,11 +350,7 @@ func (q *PreparedQuery) Run(ctx context.Context, evalCtx *hcl.EvalContext) (*que
 }
 
 func (r *QueryRunner) RunQuery(ctx context.Context, params *runQueryParameters) (*queryrunner.QueryResult, error) {
-	reqID := "-"
-	hctx, ok := queryrunner.GetQueryRunningContext(ctx)
-	if ok {
-		reqID = fmt.Sprintf("%d", hctx.ReqID)
-	}
+	reqID := queryrunner.GetRequestID(ctx)
 	log.Printf("[info][%s] start s3 select expression `%s`", reqID, params.name)
 	log.Printf("[info][%s] location: s3://%s/%s*%s", reqID, params.bucket, params.objectKeyPrefix, params.objectKeySuffix)
 	log.Printf("[debug][%s] original expression: %s", reqID, params.expression)
@@ -368,8 +364,9 @@ func (r *QueryRunner) RunQuery(ctx context.Context, params *runQueryParameters) 
 	totalScanSize := uint64(0)
 	jsonLines := make([][]byte, 0)
 	apiCallCount := 0
-	if err := hctx.ChangeSQSMessageVisibilityTimeout(ctx, 30*time.Second); err != nil {
-		log.Println("[warn] failed change sqs message visibility timeout:", err)
+	extender := queryrunner.GetTimeoutExtender(ctx)
+	if err := extender.ExtendTimeout(ctx, 30*time.Second); err != nil {
+		log.Println("[warn] failed extend timeout:", err)
 	}
 	for p.HasMorePages() {
 		if totalScanSize > params.scanLimitation {
@@ -387,8 +384,8 @@ func (r *QueryRunner) RunQuery(ctx context.Context, params *runQueryParameters) 
 			if params.objectKeySuffix != "" && !strings.HasSuffix(*content.Key, params.objectKeySuffix) {
 				continue
 			}
-			if err := hctx.ChangeSQSMessageVisibilityTimeout(ctx, 30*time.Second); err != nil {
-				log.Println("[warn] failed change sqs message visibility timeout:", err)
+			if err := extender.ExtendTimeout(ctx, 30*time.Second); err != nil {
+				log.Println("[warn] failed extend timeout:", err)
 			}
 			log.Printf("[debug][%s] start select object: s3://%s/%s (%s)", reqID, params.bucket, *content.Key, humanize.Bytes(uint64(content.Size)))
 			lines, err := r.selectObject(ctx, params.bucket, *content.Key, expression, params.inputSerialization)

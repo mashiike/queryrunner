@@ -182,11 +182,7 @@ func (q *PreparedQuery) Run(ctx context.Context, evalCtx *hcl.EvalContext) (*que
 }
 
 func (r *QueryRunner) RunQuery(ctx context.Context, stmtName string, query string) (*queryrunner.QueryResult, error) {
-	reqID := "-"
-	hctx, ok := queryrunner.GetQueryRunningContext(ctx)
-	if ok {
-		reqID = fmt.Sprintf("%d", hctx.ReqID)
-	}
+	reqID := queryrunner.GetRequestID(ctx)
 	log.Printf("[info][%s] start redshift data query `%s`", reqID, stmtName)
 	log.Printf("[debug][%s] query: %s", reqID, query)
 	executeOutput, err := r.client.ExecuteStatement(ctx, &redshiftdata.ExecuteStatementInput{
@@ -209,10 +205,6 @@ func (r *QueryRunner) RunQuery(ctx context.Context, stmtName string, query strin
 		Timeout:   15 * time.Minute,
 		Jitter:    200 * time.Millisecond,
 	}
-	log.Printf("[info][%s] wait redshift data query `%s` finish", reqID, stmtName)
-	if err := hctx.ChangeSQSMessageVisibilityTimeout(ctx, 30*time.Second); err != nil {
-		log.Println("[warn] failed change sqs message visibility timeout:", err)
-	}
 	for waiter.Continue(ctx) {
 		elapsedTime := time.Since(queryStart)
 		log.Printf("[debug][%s] wating redshift query `%s` elapsed_time=%s", reqID, stmtName, elapsedTime)
@@ -221,11 +213,6 @@ func (r *QueryRunner) RunQuery(ctx context.Context, stmtName string, query strin
 		})
 		if err != nil {
 			return nil, fmt.Errorf("describe statement:%w", err)
-		}
-		if elapsedTime > 10*time.Second {
-			if err := hctx.ChangeSQSMessageVisibilityTimeout(ctx, 30*time.Second); err != nil {
-				log.Println("[warn] failed change sqs message visibility timeout:", err)
-			}
 		}
 		if describeOutput.Status == types.StatusStringAborted {
 			return nil, fmt.Errorf("query aborted: %s", *describeOutput.Error)

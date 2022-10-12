@@ -243,11 +243,7 @@ func (q *PreparedQuery) Run(ctx context.Context, evalCtx *hcl.EvalContext) (*que
 }
 
 func (r *QueryRunner) RunQuery(ctx context.Context, name string, params *cloudwatchlogs.StartQueryInput, ignoreFields []string) (*queryrunner.QueryResult, error) {
-	reqID := "-"
-	hctx, ok := queryrunner.GetQueryRunningContext(ctx)
-	if ok {
-		reqID = fmt.Sprintf("%d", hctx.ReqID)
-	}
+	reqID := queryrunner.GetRequestID(ctx)
 	startQueryOutput, err := r.client.StartQuery(ctx, params)
 	if err != nil {
 		return nil, fmt.Errorf("start_query: %w", err)
@@ -300,11 +296,7 @@ func (r *QueryRunner) RunQuery(ctx context.Context, name string, params *cloudwa
 }
 
 func (r *QueryRunner) waitQueryResult(ctx context.Context, queryStart time.Time, params *cloudwatchlogs.GetQueryResultsInput) (*cloudwatchlogs.GetQueryResultsOutput, error) {
-	reqID := "-"
-	hctx, ok := queryrunner.GetQueryRunningContext(ctx)
-	if ok {
-		reqID = fmt.Sprintf("%d", hctx.ReqID)
-	}
+	reqID := queryrunner.GetRequestID(ctx)
 	waiter := &queryrunner.Waiter{
 		StartTime: queryStart,
 		MinDelay:  100 * time.Microsecond,
@@ -312,21 +304,12 @@ func (r *QueryRunner) waitQueryResult(ctx context.Context, queryStart time.Time,
 		Timeout:   15 * time.Minute,
 		Jitter:    200 * time.Millisecond,
 	}
-	log.Printf("[info][%s] wait finish query", reqID)
-	if err := hctx.ChangeSQSMessageVisibilityTimeout(ctx, 30*time.Second); err != nil {
-		log.Printf("[warn][%s] failed change sqs message visibility timeout: %v", reqID, err)
-	}
 	for waiter.Continue(ctx) {
 		elapsedTime := time.Since(queryStart)
 		log.Printf("[debug][%s] wating cloudwatch logs insights query elapsed_time=%s", reqID, elapsedTime)
 		getQueryResultOutput, err := r.client.GetQueryResults(ctx, params)
 		if err != nil {
 			return nil, fmt.Errorf("get query results:%w", err)
-		}
-		if elapsedTime > 10*time.Second {
-			if err := hctx.ChangeSQSMessageVisibilityTimeout(ctx, 30*time.Second); err != nil {
-				log.Printf("[warn][%s] failed change sqs message visibility timeout: %v", reqID, err)
-			}
 		}
 
 		switch getQueryResultOutput.Status {

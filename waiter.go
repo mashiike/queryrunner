@@ -4,6 +4,7 @@ import (
 	"context"
 	crand "crypto/rand"
 	"encoding/binary"
+	"log"
 	"math/rand"
 	"sync"
 	"time"
@@ -23,7 +24,8 @@ type Waiter struct {
 }
 
 func (w *Waiter) Continue(ctx context.Context) bool {
-	if time.Since(w.StartTime) >= w.Timeout {
+	elapsedTime := time.Since(w.StartTime)
+	if elapsedTime >= w.Timeout {
 		if w.timer != nil {
 			w.timer.Stop()
 			w.timer = nil
@@ -36,6 +38,12 @@ func (w *Waiter) Continue(ctx context.Context) bool {
 		w.delay *= 2
 		if w.delay > w.MaxDelay {
 			w.delay = w.MaxDelay
+		}
+	}
+	if elapsedTime > 10*time.Second {
+		extender := GetTimeoutExtender(ctx)
+		if err := extender.ExtendTimeout(ctx, w.delay+30*time.Second); err != nil {
+			log.Println("[warn] failed extend timeout:", err)
 		}
 	}
 
