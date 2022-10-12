@@ -1,0 +1,8 @@
+{
+  "queries": [
+    "lambda_logs"
+  ],
+  "variables": {
+    "function_name": "query-runner"
+  }
+}

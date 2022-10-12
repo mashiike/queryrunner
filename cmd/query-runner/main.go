@@ -126,7 +126,7 @@ func _main() error {
 				ctx = queryrunner.WithRequestID(ctx, lctx.AwsRequestID)
 			}
 			resp := &response{
-				Results: make([]*queryrunner.QueryResult, len(p.Queries)),
+				Results: make(queryrunner.QueryResults, len(p.Queries)),
 			}
 			eg, egctx := errgroup.WithContext(ctx)
 			for i, queryName := range p.Queries {
@@ -262,5 +262,5 @@ func (p *params) MarshalCTYValues() map[string]cty.Value {
 }
 
 type response struct {
-	Results []*queryrunner.QueryResult `json:"results"`
+	Results queryrunner.QueryResults `json:"results"`
 }

@@ -14,10 +14,10 @@ import (
 )
 
 type QueryResult struct {
-	Name    string     `json:"name,omitempty"`
-	Query   string     `json:"query,omitempty"`
-	Columns []string   `json:"columns"`
-	Rows    [][]string `json:"rows"`
+	Name    string
+	Query   string
+	Columns []string
+	Rows    [][]string
 }
 
 func NewEmptyQueryResult(name string, query string) *QueryResult {
@@ -135,14 +135,26 @@ func (qr *QueryResult) ToMarkdownTable() string {
 func (qr *QueryResult) ToJSONLines() string {
 	var builder strings.Builder
 	encoder := json.NewEncoder(&builder)
+	for _, row := range qr.toJSON() {
+		encoder.Encode(row)
+	}
+	return builder.String()
+}
+
+func (qr *QueryResult) toJSON() []map[string]string {
+	ret := make([]map[string]string, 0, len(qr.Rows))
 	for _, row := range qr.Rows {
 		v := make(map[string]string, len(qr.Columns))
 		for i, column := range qr.Columns {
 			v[column] = row[i]
 		}
-		encoder.Encode(v)
+		ret = append(ret, v)
 	}
-	return builder.String()
+	return ret
+}
+
+func (qr *QueryResult) MarshalJSON() ([]byte, error) {
+	return json.Marshal(qr.toJSON())
 }
 
 func (qr *QueryResult) MarshalCTYValue() cty.Value {
@@ -174,4 +186,14 @@ func (qr *QueryResult) MarshalCTYValue() cty.Value {
 		"vertical_table":   cty.StringVal(qr.ToVertical()),
 		"json_lines":       cty.StringVal(qr.ToJSONLines()),
 	})
+}
+
+type QueryResults []*QueryResult
+
+func (qrs QueryResults) MarshalJSON() ([]byte, error) {
+	m := make(map[string]*QueryResult, len(qrs))
+	for _, qr := range qrs {
+		m[qr.Name] = qr
+	}
+	return json.Marshal(m)
 }

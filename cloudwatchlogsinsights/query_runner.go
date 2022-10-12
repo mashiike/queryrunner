@@ -105,14 +105,6 @@ func (r *QueryRunner) Prepare(base *queryrunner.QueryBase) (queryrunner.Prepared
 			Subject:  q.LogGroupNames.Range().Ptr(),
 		})
 	}
-	if logGroupNamesValue.IsKnown() && logGroupNamesValue.Type().IsListType() {
-		diags = append(diags, &hcl.Diagnostic{
-			Severity: hcl.DiagError,
-			Summary:  "Invalid log_group_names",
-			Detail:   "log_group_names is must string list",
-			Subject:  q.LogGroupNames.Range().Ptr(),
-		})
-	}
 	startTimeValue, _ := q.StartTime.Value(ctx)
 	if startTimeValue.IsKnown() && startTimeValue.IsNull() {
 		var parseDiags hcl.Diagnostics
@@ -232,9 +224,9 @@ func (q *PreparedQuery) Run(ctx context.Context, variables map[string]cty.Value,
 	if !logGroupNamesValue.IsKnown() {
 		diags = append(diags, &hcl.Diagnostic{
 			Severity: hcl.DiagError,
-			Summary:  "Invalid end_time template",
-			Detail:   "end_time is unknown",
-			Subject:  q.EndTime.Range().Ptr(),
+			Summary:  "Invalid log_group_names template",
+			Detail:   "log_group_names is unknown",
+			Subject:  q.LogGroupNames.Range().Ptr(),
 		})
 		return nil, diags
 	}
@@ -245,7 +237,6 @@ func (q *PreparedQuery) Run(ctx context.Context, variables map[string]cty.Value,
 			Detail:   "log_group_names is must string list",
 			Subject:  q.LogGroupNames.Range().Ptr(),
 		})
-		return nil, diags
 	}
 	logGroupNameValues := logGroupNamesValue.AsValueSlice()
 	if len(logGroupNameValues) == 0 {
