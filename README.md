@@ -97,7 +97,68 @@ func main() {
 }
 ```
 
+## Usage with AWS Lambda (serverless)
 
+query-runner works with AWS Lambda and Amazon SQS.
+
+sample payload:
+```json
+{
+  "queries": [
+    "lambda_logs"
+  ],
+  "variables": {
+    "function_name": "query-runner"
+  }
+}
+```
+
+sample output 
+```json
+{
+  "results": {
+    "lambda_logs": [
+      {
+        "@message": "END RequestId: 00000000-0000-0000-0000-000000000000\n",
+        "@timestamp": "2022-10-12 09:22:49.638"
+      },
+      {
+        "@message": "REPORT RequestId: 00000000-0000-0000-0000-000000000000\tDuration: 2336.30 ms\tBilled Duration: 2346 ms\tMemory Size: 128 MB\tMax Memory Used: 20 MB\tInit Duration: 8.97 ms\t\n",
+        "@timestamp": "2022-10-12 09:22:49.638"
+      },
+      {
+        "@message": "2022/10/12 18:22:49 [debug] finish run `lambda_logs` runner type `cloudwatch_logs_insights`\n",
+        "@timestamp": "2022-10-12 09:22:49.637"
+      },
+      {
+        "@message": "2022/10/12 18:22:49 [debug][00000000-0000-0000-0000-000000000000] query result: 0 results, 0 B scanned, 0.000000 records matched, 0.000000 recoreds scanned\n",
+        "@timestamp": "2022-10-12 09:22:49.637"
+      },
+      {
+        "@message": "2022/10/12 18:22:49 [debug][00000000-0000-0000-0000-000000000000] wating cloudwatch logs insights query elapsed_time=1.642910477s\n",
+        "@timestamp": "2022-10-12 09:22:49.601"
+      }
+    ]
+  }
+}
+```
+
+Let's solidify the Lambda package with the following zip arcive (runtime `provided.al2`)
+
+```
+lambda.zip
+├── bootstrap    # build binary
+└── config.hcl   # configuration file
+```
+
+A related document is [https://docs.aws.amazon.com/lambda/latest/dg/runtimes-custom.html](https://docs.aws.amazon.com/lambda/latest/dg/runtimes-custom.html)
+
+for example.
+
+deploy two lambda functions, prepalert-http and prepalert-worker in [lambda directory](lambda/)  
+The example of lambda directory uses [lambroll](https://github.com/fujiwara/lambroll) for deployment.
+
+For more information on the infrastructure around lambda functions, please refer to [example.tf](lambda/example.tf).
 ## LICENSE
 
 MIT License

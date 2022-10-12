@@ -9,7 +9,7 @@ query "lambda_logs" {
   query      = <<EOT
 fields @timestamp, @message
     | sort @timestamp desc
-    | limit 2000
+    | limit 5
 EOT
   log_group_names = [
      "/aws/lambda/${var.function_name}",
