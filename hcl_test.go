@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zclconf/go-cty/cty"
+	"github.com/zclconf/go-cty/cty/function"
 )
 
 type dummyQueryRunner struct {
@@ -28,30 +29,26 @@ func (r *dummyQueryRunner) Type() string {
 	return "dummy"
 }
 
-func (r *dummyQueryRunner) Prepare(name string, body hcl.Body, ctx *hcl.EvalContext) (queryrunner.PreparedQuery, hcl.Diagnostics) {
-	log.Printf("[debug] prepare `%s` with s3_select query_runner", name)
+func (r *dummyQueryRunner) Prepare(base *queryrunner.QueryBase) (queryrunner.PreparedQuery, hcl.Diagnostics) {
+	log.Printf("[debug] prepare `%s` with dummy query_runner", base.Name())
 	q := &dummyPreparedQuery{
-		name:    name,
-		columns: r.Columns,
+		QueryBase: base,
+		columns:   r.Columns,
 	}
-	diags := gohcl.DecodeBody(body, ctx, q)
+	diags := gohcl.DecodeBody(base.Remain(), base.NewEvalContext(nil, nil), q)
 	return q, diags
 
 }
 
 type dummyPreparedQuery struct {
-	name    string
+	*queryrunner.QueryBase
 	columns []string
 
 	Rows [][]string `hcl:"rows"`
 }
 
-func (q *dummyPreparedQuery) Name() string {
-	return q.name
-}
-
-func (q *dummyPreparedQuery) Run(ctx context.Context, evalCtx *hcl.EvalContext) (*queryrunner.QueryResult, error) {
-	return queryrunner.NewQueryResult(q.name, "", q.columns, q.Rows), nil
+func (q *dummyPreparedQuery) Run(ctx context.Context, _ map[string]cty.Value, _ map[string]function.Function) (*queryrunner.QueryResult, error) {
+	return queryrunner.NewQueryResult(q.Name(), "", q.columns, q.Rows), nil
 }
 
 func TestDecodeBody(t *testing.T) {
@@ -97,7 +94,7 @@ func TestDecodeBody(t *testing.T) {
 	require.Equal(t, 1, len(attrs))
 	query, ok := queries.Get("default")
 	require.True(t, ok)
-	result, err := query.Run(context.Background(), nil)
+	result, err := query.Run(context.Background(), nil, nil)
 	require.NoError(t, err)
 	expected := strings.TrimSpace(`
 +----+------+-----+

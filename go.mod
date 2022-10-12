@@ -4,15 +4,17 @@ go 1.19
 
 require (
 	github.com/agext/levenshtein v1.2.3
-	github.com/aws/aws-lambda-go v1.34.1
 	github.com/aws/aws-sdk-go-v2 v1.16.16
 	github.com/aws/aws-sdk-go-v2/config v1.17.8
 	github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.15.20
 	github.com/aws/aws-sdk-go-v2/service/redshiftdata v1.16.11
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.27.11
-	github.com/aws/aws-sdk-go-v2/service/sqs v1.19.10
 	github.com/dustin/go-humanize v1.0.0
+	github.com/fatih/color v1.13.0
+	github.com/fujiwara/logutils v1.1.0
+	github.com/handlename/ssmwrap v1.2.0
 	github.com/hashicorp/hcl/v2 v2.14.1
+	github.com/ken39arg/go-flagx v0.0.0-20220608183922-7cf7c6c0093c
 	github.com/mashiike/hclconfig v0.5.0
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/samber/lo v1.32.0
@@ -24,6 +26,7 @@ require (
 require (
 	github.com/Songmu/flextime v0.1.0 // indirect
 	github.com/apparentlymart/go-textseg/v13 v13.0.0 // indirect
+	github.com/aws/aws-sdk-go v1.38.71 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.4.8 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.12.21 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.17 // indirect
@@ -41,7 +44,9 @@ require (
 	github.com/aws/smithy-go v1.13.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
+	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/lestrrat-go/strftime v1.0.6 // indirect
+	github.com/mattn/go-colorable v0.1.9 // indirect
 	github.com/mattn/go-isatty v0.0.16 // indirect
 	github.com/mattn/go-runewidth v0.0.13 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect

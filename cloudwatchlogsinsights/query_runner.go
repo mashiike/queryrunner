@@ -19,6 +19,7 @@ import (
 	"github.com/mashiike/queryrunner"
 	"github.com/samber/lo"
 	"github.com/zclconf/go-cty/cty"
+	"github.com/zclconf/go-cty/cty/function"
 )
 
 const TypeName = "cloudwatch_logs_insights"
@@ -31,7 +32,6 @@ func init() {
 	if err != nil {
 		panic(fmt.Errorf("register cloudwatch_logs_insights query runner:%w", err))
 	}
-	log.Println("[info] load cloudwatch_logs_insights query runner")
 }
 
 func BuildQueryRunner(name string, body hcl.Body, ctx *hcl.EvalContext) (queryrunner.QueryRunner, hcl.Diagnostics) {
@@ -70,7 +70,7 @@ type QueryRunner struct {
 }
 
 type PreparedQuery struct {
-	name   string
+	*queryrunner.QueryBase
 	runner *QueryRunner
 
 	StartTime hcl.Expression `hcl:"start_time"`
@@ -85,12 +85,14 @@ type PreparedQuery struct {
 	Attrs hcl.Attributes `hcl:",body"`
 }
 
-func (r *QueryRunner) Prepare(name string, body hcl.Body, ctx *hcl.EvalContext) (queryrunner.PreparedQuery, hcl.Diagnostics) {
-	log.Printf("[debug] prepare `%s` with cloudwatch_logs_insights query_runner", name)
+func (r *QueryRunner) Prepare(base *queryrunner.QueryBase) (queryrunner.PreparedQuery, hcl.Diagnostics) {
+	log.Printf("[debug] prepare `%s` with cloudwatch_logs_insights query_runner", base.Name())
 	q := &PreparedQuery{
-		name:   name,
-		runner: r,
+		QueryBase: base,
+		runner:    r,
 	}
+	body := base.Remain()
+	ctx := base.NewEvalContext(nil, nil)
 	diags := gohcl.DecodeBody(body, ctx, q)
 	if diags.HasErrors() {
 		return nil, diags
@@ -137,13 +139,10 @@ func (r *QueryRunner) Prepare(name string, body hcl.Body, ctx *hcl.EvalContext) 
 	return q, diags
 }
 
-func (q *PreparedQuery) Name() string {
-	return q.name
-}
-
 const layout = "2006-01-02T15:04:05-0700"
 
-func (q *PreparedQuery) Run(ctx context.Context, evalCtx *hcl.EvalContext) (*queryrunner.QueryResult, error) {
+func (q *PreparedQuery) Run(ctx context.Context, variables map[string]cty.Value, functions map[string]function.Function) (*queryrunner.QueryResult, error) {
+	evalCtx := q.NewEvalContext(variables, functions)
 	queryValue, diags := q.Query.Value(evalCtx)
 	if diags.HasErrors() {
 		return nil, diags
@@ -239,7 +238,7 @@ func (q *PreparedQuery) Run(ctx context.Context, evalCtx *hcl.EvalContext) (*que
 		LogGroupName:  q.LogGroupName,
 		LogGroupNames: q.LogGroupNames,
 	}
-	return q.runner.RunQuery(ctx, q.name, params, q.IgnoreFields)
+	return q.runner.RunQuery(ctx, q.Name(), params, q.IgnoreFields)
 }
 
 func (r *QueryRunner) RunQuery(ctx context.Context, name string, params *cloudwatchlogs.StartQueryInput, ignoreFields []string) (*queryrunner.QueryResult, error) {

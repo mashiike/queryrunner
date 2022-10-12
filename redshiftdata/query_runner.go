@@ -16,6 +16,7 @@ import (
 	"github.com/mashiike/queryrunner"
 	"github.com/samber/lo"
 	"github.com/zclconf/go-cty/cty"
+	"github.com/zclconf/go-cty/cty/function"
 )
 
 const TypeName = "redshift_data"
@@ -28,7 +29,6 @@ func init() {
 	if err != nil {
 		panic(fmt.Errorf("register redshfit_data query runner:%w", err))
 	}
-	log.Println("[info] load redshift_data query runner")
 }
 
 func BuildQueryRunner(name string, body hcl.Body, ctx *hcl.EvalContext) (queryrunner.QueryRunner, hcl.Diagnostics) {
@@ -124,18 +124,20 @@ func (r *QueryRunner) Type() string {
 }
 
 type PreparedQuery struct {
-	name   string
+	*queryrunner.QueryBase
 	runner *QueryRunner
 
 	SQL hcl.Expression `hcl:"sql"`
 }
 
-func (r *QueryRunner) Prepare(name string, body hcl.Body, ctx *hcl.EvalContext) (queryrunner.PreparedQuery, hcl.Diagnostics) {
-	log.Printf("[debug] prepare `%s` with redshift_data query_runner", name)
+func (r *QueryRunner) Prepare(base *queryrunner.QueryBase) (queryrunner.PreparedQuery, hcl.Diagnostics) {
+	log.Printf("[debug] prepare `%s` with redshift_data query_runner", base.Name())
 	q := &PreparedQuery{
-		name:   name,
-		runner: r,
+		QueryBase: base,
+		runner:    r,
 	}
+	body := base.Body()
+	ctx := base.NewEvalContext(nil, nil)
 	diags := gohcl.DecodeBody(body, ctx, q)
 	if diags.HasErrors() {
 		return nil, diags
@@ -163,11 +165,8 @@ func (r *QueryRunner) Prepare(name string, body hcl.Body, ctx *hcl.EvalContext) 
 	return q, diags
 }
 
-func (q *PreparedQuery) Name() string {
-	return q.name
-}
-
-func (q *PreparedQuery) Run(ctx context.Context, evalCtx *hcl.EvalContext) (*queryrunner.QueryResult, error) {
+func (q *PreparedQuery) Run(ctx context.Context, variables map[string]cty.Value, functions map[string]function.Function) (*queryrunner.QueryResult, error) {
+	evalCtx := q.NewEvalContext(variables, functions)
 	value, diags := q.SQL.Value(evalCtx)
 	if diags.HasErrors() {
 		return nil, diags
@@ -178,7 +177,7 @@ func (q *PreparedQuery) Run(ctx context.Context, evalCtx *hcl.EvalContext) (*que
 	if value.Type() != cty.String {
 		return nil, errors.New("SQL is string")
 	}
-	return q.runner.RunQuery(ctx, q.name, value.AsString())
+	return q.runner.RunQuery(ctx, q.Name(), value.AsString())
 }
 
 func (r *QueryRunner) RunQuery(ctx context.Context, stmtName string, query string) (*queryrunner.QueryResult, error) {

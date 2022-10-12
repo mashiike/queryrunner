@@ -19,6 +19,7 @@ import (
 	"github.com/mashiike/queryrunner"
 	"github.com/samber/lo"
 	"github.com/zclconf/go-cty/cty"
+	"github.com/zclconf/go-cty/cty/function"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -32,7 +33,6 @@ func init() {
 	if err != nil {
 		panic(fmt.Errorf("register s3_select query runner:%w", err))
 	}
-	log.Println("[info] load s3_select query runner")
 }
 
 func BuildQueryRunner(name string, body hcl.Body, ctx *hcl.EvalContext) (queryrunner.QueryRunner, hcl.Diagnostics) {
@@ -77,7 +77,7 @@ func (r *QueryRunner) Type() string {
 }
 
 type PreparedQuery struct {
-	name   string
+	*queryrunner.QueryBase
 	runner *QueryRunner
 
 	Expression      hcl.Expression `hcl:"expression"`
@@ -111,13 +111,14 @@ type QueryJSONBlock struct {
 
 type QueryParquetBlock struct{}
 
-func (r *QueryRunner) Prepare(name string, body hcl.Body, ctx *hcl.EvalContext) (queryrunner.PreparedQuery, hcl.Diagnostics) {
-	log.Printf("[debug] prepare `%s` with s3_select query_runner", name)
+func (r *QueryRunner) Prepare(base *queryrunner.QueryBase) (queryrunner.PreparedQuery, hcl.Diagnostics) {
+	log.Printf("[debug] prepare `%s` with s3_select query_runner", base.Name())
 	q := &PreparedQuery{
-		name:   name,
-		runner: r,
+		QueryBase: base,
+		runner:    r,
 	}
-	diags := gohcl.DecodeBody(body, ctx, q)
+	body := base.Remain()
+	diags := gohcl.DecodeBody(body, base.NewEvalContext(nil, nil), q)
 	if diags.HasErrors() {
 		return nil, diags
 	}
@@ -263,10 +264,6 @@ func (r *QueryRunner) Prepare(name string, body hcl.Body, ctx *hcl.EvalContext) 
 	return q, diags
 }
 
-func (q *PreparedQuery) Name() string {
-	return q.name
-}
-
 type runQueryParameters struct {
 	name               string
 	expression         string
@@ -278,7 +275,8 @@ type runQueryParameters struct {
 	continueOnError    bool
 }
 
-func (q *PreparedQuery) Run(ctx context.Context, evalCtx *hcl.EvalContext) (*queryrunner.QueryResult, error) {
+func (q *PreparedQuery) Run(ctx context.Context, variables map[string]cty.Value, functions map[string]function.Function) (*queryrunner.QueryResult, error) {
+	evalCtx := q.NewEvalContext(variables, functions)
 	expressionValue, diags := q.Expression.Value(evalCtx)
 	if diags.HasErrors() {
 		return nil, diags
@@ -337,7 +335,7 @@ func (q *PreparedQuery) Run(ctx context.Context, evalCtx *hcl.EvalContext) (*que
 	objectKeyPrefix := objectKeyPrefixValue.AsString()
 
 	params := &runQueryParameters{
-		name:               q.name,
+		name:               q.Name(),
 		expression:         expr,
 		bucket:             q.BucketName,
 		objectKeyPrefix:    objectKeyPrefix,
