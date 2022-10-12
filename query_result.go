@@ -109,6 +109,29 @@ func (qr *QueryResult) ToVertical() string {
 	return builder.String()
 }
 
+func (qr *QueryResult) ToBorderlessTable() string {
+	return qr.ToTable(
+		func(table *tablewriter.Table) {
+			table.SetCenterSeparator(" ")
+			table.SetAutoFormatHeaders(false)
+			table.SetAutoWrapText(false)
+			table.SetBorder(false)
+			table.SetColumnSeparator(" ")
+		},
+	)
+}
+
+func (qr *QueryResult) ToMarkdownTable() string {
+	return qr.ToTable(
+		func(table *tablewriter.Table) {
+			table.SetBorders(tablewriter.Border{Left: true, Top: false, Right: true, Bottom: false})
+			table.SetCenterSeparator("|")
+			table.SetAutoFormatHeaders(false)
+			table.SetAutoWrapText(false)
+		},
+	)
+}
+
 func (qr *QueryResult) ToJSON() string {
 	var builder strings.Builder
 	encoder := json.NewEncoder(&builder)
@@ -141,29 +164,14 @@ func (qr *QueryResult) MarshalCTYValue() cty.Value {
 		}))
 	}
 	return cty.ObjectVal(map[string]cty.Value{
-		"name":    cty.StringVal(qr.Name),
-		"query":   cty.StringVal(qr.Query),
-		"columns": columns,
-		"rows":    rows,
-		"table":   cty.StringVal(qr.ToTable()),
-		"markdown_table": cty.StringVal(qr.ToTable(
-			func(table *tablewriter.Table) {
-				table.SetBorders(tablewriter.Border{Left: true, Top: false, Right: true, Bottom: false})
-				table.SetCenterSeparator("|")
-				table.SetAutoFormatHeaders(false)
-				table.SetAutoWrapText(false)
-			},
-		)),
-		"borderless_table": cty.StringVal(qr.ToTable(
-			func(table *tablewriter.Table) {
-				table.SetCenterSeparator(" ")
-				table.SetAutoFormatHeaders(false)
-				table.SetAutoWrapText(false)
-				table.SetBorder(false)
-				table.SetColumnSeparator(" ")
-			},
-		)),
-		"vertical_table": cty.StringVal(qr.ToVertical()),
-		"json_lines":     cty.StringVal(qr.ToJSON()),
+		"name":             cty.StringVal(qr.Name),
+		"query":            cty.StringVal(qr.Query),
+		"columns":          columns,
+		"rows":             rows,
+		"table":            cty.StringVal(qr.ToTable()),
+		"markdown_table":   cty.StringVal(qr.ToMarkdownTable()),
+		"borderless_table": cty.StringVal(qr.ToBorderlessTable()),
+		"vertical_table":   cty.StringVal(qr.ToVertical()),
+		"json_lines":       cty.StringVal(qr.ToJSON()),
 	})
 }
