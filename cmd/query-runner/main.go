@@ -14,6 +14,7 @@ import (
 	"syscall"
 
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/aws/aws-lambda-go/lambdacontext"
 	"github.com/fatih/color"
 	"github.com/fujiwara/logutils"
 	"github.com/handlename/ssmwrap"
@@ -117,16 +118,13 @@ func _main() error {
 	if err := hclconfig.Load(&queries, config); err != nil {
 		return err
 	}
-	if showList {
-		fmt.Println("query list:")
-		for _, query := range queries {
-			fmt.Printf("\t%s\t%s\t%s\n", query.Name(), query.RunnerType(), query.Description())
-		}
-		return nil
-	}
 	if strings.HasPrefix(os.Getenv("AWS_EXECUTION_ENV"), "AWS_Lambda") || os.Getenv("AWS_LAMBDA_RUNTIME_API") != "" {
 		log.Println("[info] run on AWS Lambda runtime")
 		lambda.Start(func(ctx context.Context, p *params) (*response, error) {
+			log.Println("[debug] lambda handler start")
+			if lctx, ok := lambdacontext.FromContext(ctx); ok {
+				ctx = queryrunner.WithRequestID(ctx, lctx.AwsRequestID)
+			}
 			resp := &response{
 				Results: make([]*queryrunner.QueryResult, len(p.Queries)),
 			}
@@ -153,6 +151,15 @@ func _main() error {
 			}
 			return resp, nil
 		})
+		return nil
+	}
+	log.Println("[debug] run on local")
+	if showList {
+		fmt.Println("query list:")
+		for _, query := range queries {
+			fmt.Printf("\t%s\t%s\t%s\n", query.Name(), query.RunnerType(), query.Description())
+		}
+		return nil
 	}
 	var p params
 	if variables != "" {
@@ -225,11 +232,13 @@ type params struct {
 func (p *params) MarshalCTYValues() map[string]cty.Value {
 	p.once.Do(func() {
 		if p.Variables == nil {
+			log.Println("[debug] variables is nil ")
 			p.cache = map[string]cty.Value{
 				"var": cty.NullVal(cty.DynamicPseudoType),
 			}
 			return
 		}
+		log.Println("[debug] variables => ", string(p.Variables))
 		ctx := hclconfig.NewEvalContext()
 		src := []byte(`jsondecode(`)
 		bs, _ := json.Marshal(string(p.Variables))
