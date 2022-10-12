@@ -118,15 +118,38 @@ func (r *QueryRunner) Prepare(base *queryrunner.QueryBase) (queryrunner.Prepared
 		runner:    r,
 	}
 	body := base.Remain()
-	diags := gohcl.DecodeBody(body, base.NewEvalContext(nil, nil), q)
+	ctx := base.NewEvalContext(nil, nil)
+	diags := gohcl.DecodeBody(body, ctx, q)
 	if diags.HasErrors() {
 		return nil, diags
 	}
+
+	expressionValue, _ := q.Expression.Value(ctx)
+	if expressionValue.Type() != cty.String {
+		diags = append(diags, &hcl.Diagnostic{
+			Severity: hcl.DiagError,
+			Summary:  "Invalid expression template",
+			Detail:   "expression is not string",
+			Subject:  q.Expression.Range().Ptr(),
+		})
+		return nil, diags
+	}
+
+	objectKeyPrefixValue, _ := q.ObjectKeyPrefix.Value(ctx)
+	if objectKeyPrefixValue.Type() != cty.String {
+		diags = append(diags, &hcl.Diagnostic{
+			Severity: hcl.DiagError,
+			Summary:  "Invalid object_key_prefix template",
+			Detail:   "object_key_prefix is not string",
+			Subject:  q.ObjectKeyPrefix.Range().Ptr(),
+		})
+		return nil, diags
+	}
+
 	var err error
 	if q.ScanLimit == nil {
 		q.ScanLimit = lo.ToPtr("1GB")
 	}
-
 	q.scanLimit, err = humanize.ParseBytes(*q.ScanLimit)
 	if err != nil {
 		diags = append(diags, &hcl.Diagnostic{
@@ -290,15 +313,6 @@ func (q *PreparedQuery) Run(ctx context.Context, variables map[string]cty.Value,
 		})
 		return nil, diags
 	}
-	if expressionValue.Type() != cty.String {
-		diags = append(diags, &hcl.Diagnostic{
-			Severity: hcl.DiagError,
-			Summary:  "Invalid query template",
-			Detail:   "expression is not string",
-			Subject:  q.Expression.Range().Ptr(),
-		})
-		return nil, diags
-	}
 	expr := expressionValue.AsString()
 	if expr == "" {
 		diags = append(diags, &hcl.Diagnostic{
@@ -319,15 +333,6 @@ func (q *PreparedQuery) Run(ctx context.Context, variables map[string]cty.Value,
 			Severity: hcl.DiagError,
 			Summary:  "Invalid object_key_prefix template",
 			Detail:   "object_key_prefix is unknown",
-			Subject:  q.ObjectKeyPrefix.Range().Ptr(),
-		})
-		return nil, diags
-	}
-	if objectKeyPrefixValue.Type() != cty.String {
-		diags = append(diags, &hcl.Diagnostic{
-			Severity: hcl.DiagError,
-			Summary:  "Invalid object_key_prefix template",
-			Detail:   "object_key_prefix is not string",
 			Subject:  q.ObjectKeyPrefix.Range().Ptr(),
 		})
 		return nil, diags

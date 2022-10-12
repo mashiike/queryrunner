@@ -183,6 +183,7 @@ func _main() error {
 		query, ok := queries.Get(queryName)
 		if !ok {
 			log.Printf("[warn] query `%s` is not found, skip this query", queryName)
+			continue
 		}
 		eg.Go(func() error {
 			log.Printf("[debug] start run `%s` runner type `%s`", query.Name(), query.RunnerType())

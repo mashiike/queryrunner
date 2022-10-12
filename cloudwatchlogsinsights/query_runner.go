@@ -94,7 +94,24 @@ func (r *QueryRunner) Prepare(base *queryrunner.QueryBase) (queryrunner.Prepared
 	if diags.HasErrors() {
 		return nil, diags
 	}
-
+	queryValue, _ := q.Query.Value(ctx)
+	if queryValue.IsKnown() && queryValue.IsNull() {
+		diags = append(diags, &hcl.Diagnostic{
+			Severity: hcl.DiagError,
+			Summary:  "Invalid query template",
+			Detail:   "required attribute query",
+			Subject:  q.Query.Range().Ptr(),
+		})
+	}
+	if queryValue.Type() != cty.String {
+		diags = append(diags, &hcl.Diagnostic{
+			Severity: hcl.DiagError,
+			Summary:  "Invalid query template",
+			Detail:   "query is not string",
+			Subject:  q.Query.Range().Ptr(),
+		})
+		return nil, diags
+	}
 	log.Printf("[debug] end cloudwatch_logs_insights query block %d error diags", len(diags.Errs()))
 	logGroupNamesValue, _ := q.LogGroupNames.Value(ctx)
 	if logGroupNamesValue.IsKnown() && logGroupNamesValue.IsNull() {
@@ -105,17 +122,41 @@ func (r *QueryRunner) Prepare(base *queryrunner.QueryBase) (queryrunner.Prepared
 			Subject:  q.LogGroupNames.Range().Ptr(),
 		})
 	}
+	if !logGroupNamesValue.Type().IsListType() && !logGroupNamesValue.Type().IsTupleType() {
+		diags = append(diags, &hcl.Diagnostic{
+			Severity: hcl.DiagError,
+			Summary:  "Invalid log_group_names",
+			Detail:   "log_group_names is must string list",
+			Subject:  q.LogGroupNames.Range().Ptr(),
+		})
+	}
 	startTimeValue, _ := q.StartTime.Value(ctx)
 	if startTimeValue.IsKnown() && startTimeValue.IsNull() {
 		var parseDiags hcl.Diagnostics
 		q.StartTime, parseDiags = hclsyntax.ParseExpression([]byte(`strftime_in_zone("%Y-%m-%dT%H:%M:%S%z", "UTC", now() - duration("15m"))`), "default_start_time.hcl", hcl.InitialPos)
 		diags = append(diags, parseDiags...)
 	}
+	if startTimeValue.Type() != cty.String {
+		diags = append(diags, &hcl.Diagnostic{
+			Severity: hcl.DiagError,
+			Summary:  "Invalid start_time template",
+			Detail:   "start_time is not string",
+			Subject:  q.StartTime.Range().Ptr(),
+		})
+	}
 	endTimeValue, _ := q.EndTime.Value(ctx)
 	if endTimeValue.IsKnown() && endTimeValue.IsNull() {
 		var parseDiags hcl.Diagnostics
 		q.EndTime, parseDiags = hclsyntax.ParseExpression([]byte(`strftime_in_zone("%Y-%m-%dT%H:%M:%S%z", "UTC", now())`), "default_end_time.hcl", hcl.InitialPos)
 		diags = append(diags, parseDiags...)
+	}
+	if endTimeValue.Type() != cty.String {
+		diags = append(diags, &hcl.Diagnostic{
+			Severity: hcl.DiagError,
+			Summary:  "Invalid end_time template",
+			Detail:   "end_time is not string",
+			Subject:  q.EndTime.Range().Ptr(),
+		})
 	}
 	return q, diags
 }
@@ -133,15 +174,6 @@ func (q *PreparedQuery) Run(ctx context.Context, variables map[string]cty.Value,
 			Severity: hcl.DiagError,
 			Summary:  "Invalid query template",
 			Detail:   "query is unknown",
-			Subject:  q.Query.Range().Ptr(),
-		})
-		return nil, diags
-	}
-	if queryValue.Type() != cty.String {
-		diags = append(diags, &hcl.Diagnostic{
-			Severity: hcl.DiagError,
-			Summary:  "Invalid query template",
-			Detail:   "query is not string",
 			Subject:  q.Query.Range().Ptr(),
 		})
 		return nil, diags
@@ -170,15 +202,6 @@ func (q *PreparedQuery) Run(ctx context.Context, variables map[string]cty.Value,
 		})
 		return nil, diags
 	}
-	if startTimeValue.Type() != cty.String {
-		diags = append(diags, &hcl.Diagnostic{
-			Severity: hcl.DiagError,
-			Summary:  "Invalid start_time template",
-			Detail:   "start_time is not string",
-			Subject:  q.StartTime.Range().Ptr(),
-		})
-		return nil, diags
-	}
 	startTime, err := time.Parse(layout, startTimeValue.AsString())
 	if err != nil {
 		return nil, fmt.Errorf("parse start_time: %w", err)
@@ -193,15 +216,6 @@ func (q *PreparedQuery) Run(ctx context.Context, variables map[string]cty.Value,
 			Severity: hcl.DiagError,
 			Summary:  "Invalid end_time template",
 			Detail:   "end_time is unknown",
-			Subject:  q.EndTime.Range().Ptr(),
-		})
-		return nil, diags
-	}
-	if endTimeValue.Type() != cty.String {
-		diags = append(diags, &hcl.Diagnostic{
-			Severity: hcl.DiagError,
-			Summary:  "Invalid end_time template",
-			Detail:   "end_time is not string",
 			Subject:  q.EndTime.Range().Ptr(),
 		})
 		return nil, diags
@@ -229,14 +243,6 @@ func (q *PreparedQuery) Run(ctx context.Context, variables map[string]cty.Value,
 			Subject:  q.LogGroupNames.Range().Ptr(),
 		})
 		return nil, diags
-	}
-	if !logGroupNamesValue.Type().IsListType() {
-		diags = append(diags, &hcl.Diagnostic{
-			Severity: hcl.DiagError,
-			Summary:  "Invalid log_group_names",
-			Detail:   "log_group_names is must string list",
-			Subject:  q.LogGroupNames.Range().Ptr(),
-		})
 	}
 	logGroupNameValues := logGroupNamesValue.AsValueSlice()
 	if len(logGroupNameValues) == 0 {
