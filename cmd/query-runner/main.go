@@ -10,18 +10,22 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/fatih/color"
 	"github.com/fujiwara/logutils"
 	"github.com/handlename/ssmwrap"
+	"github.com/hashicorp/hcl/v2"
+	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/ken39arg/go-flagx"
 	"github.com/mashiike/hclconfig"
 	"github.com/mashiike/queryrunner"
 	_ "github.com/mashiike/queryrunner/cloudwatchlogsinsights"
 	_ "github.com/mashiike/queryrunner/redshiftdata"
 	_ "github.com/mashiike/queryrunner/s3select"
+	"github.com/zclconf/go-cty/cty"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -55,6 +59,7 @@ const usage = `query-runner is a helper tool that makes querying several AWS ser
     -c, --config        config dir, config format is HCL (defualt: ~/.config/query-runner/)
     -l, --list          displays a list of formats
 	-o, --output        output format [json|table|markdown|borderless|vertical] (default:json)
+	-v, --variables     variables json
     -h, --help          prints help information
         --log-level     log output level (default: info)
 `
@@ -85,10 +90,11 @@ func _main() error {
 	}
 
 	var (
-		config   string
-		logLevel string
-		showList bool
-		output   string
+		config    string
+		logLevel  string
+		showList  bool
+		variables string
+		output    string
 	)
 	flag.Usage = func() { fmt.Print(usage) }
 	flag.StringVar(&config, "config", "", "")
@@ -97,6 +103,8 @@ func _main() error {
 	flag.BoolVar(&showList, "l", false, "")
 	flag.StringVar(&output, "output", "", "")
 	flag.StringVar(&output, "o", "", "")
+	flag.StringVar(&variables, "variables", "", "")
+	flag.StringVar(&variables, "v", "", "")
 	flag.StringVar(&logLevel, "log-level", "info", "")
 	flag.VisitAll(flagFilter(flagx.EnvToFlag))
 	flag.VisitAll(flagFilter(flagx.EnvToFlagWithPrefix("QUERY_RUNNER_")))
@@ -131,7 +139,7 @@ func _main() error {
 				index := i
 				eg.Go(func() error {
 					log.Printf("[debug] start run `%s` runner type `%s`", query.Name(), query.RunnerType())
-					result, err := query.Run(egctx, nil, nil)
+					result, err := query.Run(egctx, p.MarshalCTYValues(), nil)
 					if err != nil {
 						return err
 					}
@@ -147,6 +155,12 @@ func _main() error {
 		})
 	}
 	var p params
+	if variables != "" {
+		decoder := json.NewDecoder(strings.NewReader(variables))
+		if err := decoder.Decode(&p.Variables); err != nil {
+			return err
+		}
+	}
 	if flag.NArg() > 0 {
 		p.Queries = flag.Args()
 	} else {
@@ -165,7 +179,7 @@ func _main() error {
 		}
 		eg.Go(func() error {
 			log.Printf("[debug] start run `%s` runner type `%s`", query.Name(), query.RunnerType())
-			result, err := query.Run(egctx, nil, nil)
+			result, err := query.Run(egctx, p.MarshalCTYValues(), nil)
 			if err != nil {
 				return err
 			}
@@ -201,7 +215,41 @@ func flagFilter(visitFunc func(f *flag.Flag)) func(f *flag.Flag) {
 }
 
 type params struct {
-	Queries []string `json:"queries"`
+	Queries   []string        `json:"queries"`
+	Variables json.RawMessage `json:"variables,omitempty"`
+
+	once  sync.Once
+	cache map[string]cty.Value
+}
+
+func (p *params) MarshalCTYValues() map[string]cty.Value {
+	p.once.Do(func() {
+		if p.Variables == nil {
+			p.cache = map[string]cty.Value{
+				"var": cty.NullVal(cty.DynamicPseudoType),
+			}
+			return
+		}
+		ctx := hclconfig.NewEvalContext()
+		src := []byte(`jsondecode(`)
+		bs, _ := json.Marshal(string(p.Variables))
+		src = append(src, bs...)
+		src = append(src, []byte(`)`)...)
+		expr, diags := hclsyntax.ParseExpression(src, "", hcl.InitialPos)
+		if diags.HasErrors() {
+			log.Println("[warn] params variables parse expression:", diags.Error())
+			return
+		}
+		value, diags := expr.Value(ctx)
+		if diags.HasErrors() {
+			log.Println("[warn] params variables eval value:", diags.Error())
+			return
+		}
+		p.cache = map[string]cty.Value{
+			"var": value,
+		}
+	})
+	return p.cache
 }
 
 type response struct {
