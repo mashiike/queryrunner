@@ -1,0 +1,175 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"io"
+	"log"
+	"os"
+	"os/signal"
+	"strings"
+	"syscall"
+
+	"github.com/fatih/color"
+	"github.com/fujiwara/logutils"
+	"github.com/handlename/ssmwrap"
+	"github.com/ken39arg/go-flagx"
+	"github.com/mashiike/hclconfig"
+	"github.com/mashiike/queryrunner"
+	_ "github.com/mashiike/queryrunner/cloudwatchlogsinsights"
+	_ "github.com/mashiike/queryrunner/redshiftdata"
+	_ "github.com/mashiike/queryrunner/s3select"
+	"golang.org/x/sync/errgroup"
+)
+
+var filter = &logutils.LevelFilter{
+	Levels: []logutils.LogLevel{"debug", "info", "notice", "warn", "error"},
+	ModifierFuncs: []logutils.ModifierFunc{
+		logutils.Color(color.FgHiBlack),
+		nil,
+		logutils.Color(color.FgHiBlue),
+		logutils.Color(color.FgYellow),
+		logutils.Color(color.FgRed, color.BgBlack),
+	},
+	MinLevel: "info",
+	Writer:   os.Stderr,
+}
+
+func main() {
+	if err := _main(); err != nil {
+		log.Fatalln("[error]", err)
+	}
+}
+
+const usage = `query-runner is a helper tool that makes querying several AWS services convenient
+
+  usages:
+    query-runner -l
+    query-runner [options] <query_name1> <query_name2> ...
+    cat params.json | query-runner [options]
+
+  options:
+    -c, --config        config dir, config format is HCL (defualt: ~/.config/query-runner/)
+    -l, --list          displays a list of formats
+	-o, --output        output format [json|table|markdown|borderless|vertical] (default:json)
+    -h, --help          prints help information
+        --log-level     log output level (default: info)
+`
+
+func _main() error {
+	log.SetOutput(filter)
+	ssmwrapPaths := os.Getenv("SSMWRAP_PATHS")
+	paths := strings.Split(ssmwrapPaths, ",")
+	if ssmwrapPaths != "" && len(paths) > 0 {
+		err := ssmwrap.Export(ssmwrap.ExportOptions{
+			Paths:   paths,
+			Retries: 3,
+		})
+		if err != nil {
+			return err
+		}
+	}
+	ssmwrapNames := os.Getenv("SSMWRAP_NAMES")
+	names := strings.Split(ssmwrapNames, ",")
+	if ssmwrapNames != "" && len(names) > 0 {
+		err := ssmwrap.Export(ssmwrap.ExportOptions{
+			Names:   names,
+			Retries: 3,
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	var (
+		config   string
+		logLevel string
+		showList bool
+		output   string
+	)
+	flag.Usage = func() { fmt.Print(usage) }
+	flag.StringVar(&config, "config", "", "")
+	flag.StringVar(&config, "c", "", "")
+	flag.BoolVar(&showList, "list", false, "")
+	flag.BoolVar(&showList, "l", false, "")
+	flag.StringVar(&output, "output", "", "")
+	flag.StringVar(&output, "o", "", "")
+	flag.StringVar(&logLevel, "log-level", "info", "")
+	flag.VisitAll(flagFilter(flagx.EnvToFlag))
+	flag.VisitAll(flagFilter(flagx.EnvToFlagWithPrefix("QUERY_RUNNER_")))
+	flag.Parse()
+	filter.SetMinLevel(logutils.LogLevel(strings.ToLower(logLevel)))
+	if config == "" {
+		config = "~/.config/query-runner/"
+	}
+	var queries queryrunner.PreparedQueries
+	if err := hclconfig.Load(&queries, config); err != nil {
+		return err
+	}
+	if showList {
+		fmt.Println("query list:")
+		for _, query := range queries {
+			fmt.Printf("\t%s\t%s\t%s\n", query.Name(), query.RunnerType(), query.Description())
+		}
+		return nil
+	}
+
+	var p params
+	if flag.NArg() > 0 {
+		p.Queries = flag.Args()
+	} else {
+		decoder := json.NewDecoder(os.Stdin)
+		if err := decoder.Decode(&p); err != nil {
+			return err
+		}
+	}
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
+	defer cancel()
+	eg, egctx := errgroup.WithContext(ctx)
+	for _, queryName := range p.Queries {
+		query, ok := queries.Get(queryName)
+		if !ok {
+			log.Printf("[warn] query `%s` is not found, skip this query", queryName)
+		}
+		eg.Go(func() error {
+			log.Printf("[debug] start run `%s` runner type `%s`", query.Name(), query.RunnerType())
+			result, err := query.Run(egctx, nil, nil)
+			if err != nil {
+				return err
+			}
+			log.Printf("[debug] finish run `%s` runner type `%s`", query.Name(), query.RunnerType())
+			switch output {
+			case "table":
+				io.WriteString(os.Stdout, result.ToTable())
+			case "markdown":
+				io.WriteString(os.Stdout, result.ToMarkdownTable())
+			case "borderless":
+				io.WriteString(os.Stdout, result.ToBorderlessTable())
+			case "vertical":
+				io.WriteString(os.Stdout, result.ToVertical())
+			default:
+				io.WriteString(os.Stdout, result.ToJSON())
+			}
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func flagFilter(visitFunc func(f *flag.Flag)) func(f *flag.Flag) {
+	return func(f *flag.Flag) {
+		if len(f.Name) <= 1 {
+			return
+		}
+		visitFunc(f)
+	}
+}
+
+type params struct {
+	Queries []string `json:"queries,omitempty"`
+}
