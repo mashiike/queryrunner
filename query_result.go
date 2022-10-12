@@ -142,10 +142,21 @@ func (qr *QueryResult) ToJSONLines() string {
 }
 
 func (qr *QueryResult) toJSON() []map[string]string {
+	columns := make([]string, 0, len(qr.Columns))
+	duplicate := make(map[string]int, len(qr.Columns))
+	for _, column := range qr.Columns {
+		if index, ok := duplicate[column]; ok {
+			columns = append(columns, fmt.Sprintf("%s%d", column, index))
+			duplicate[column]++
+		} else {
+			columns = append(columns, column)
+			duplicate[column] = 1
+		}
+	}
 	ret := make([]map[string]string, 0, len(qr.Rows))
 	for _, row := range qr.Rows {
 		v := make(map[string]string, len(qr.Columns))
-		for i, column := range qr.Columns {
+		for i, column := range columns {
 			v[column] = row[i]
 		}
 		ret = append(ret, v)

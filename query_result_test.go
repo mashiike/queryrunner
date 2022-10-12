@@ -127,3 +127,20 @@ func TestQueryEmptyReusltMarshalCTYValue(t *testing.T) {
 		"json_lines":       cty.StringVal(""),
 	}), value)
 }
+
+func TestQueryReusltMarshalJSON(t *testing.T) {
+	qr := queryrunner.NewQueryResult(
+		"hoge_result",
+		"dummy",
+		[]string{"?column?", "?column?", "?column?"},
+		[][]string{
+			{"1", "2", "3"},
+			{"4", "5", "6"},
+		},
+	)
+	bs, err := qr.MarshalJSON()
+	t.Log(string(bs))
+	require.NoError(t, err)
+	expected := ` [{"?column?":"1","?column?1":"2","?column?2":"3"},{"?column?":"4","?column?1":"5","?column?2":"6"}]`
+	require.JSONEq(t, expected, string(bs))
+}
