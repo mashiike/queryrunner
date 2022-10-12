@@ -14,10 +14,10 @@ import (
 )
 
 type QueryResult struct {
-	Name    string
-	Query   string
-	Columns []string
-	Rows    [][]string
+	Name    string     `json:"name,omitempty"`
+	Query   string     `json:"query,omitempty"`
+	Columns []string   `json:"columns"`
+	Rows    [][]string `json:"rows"`
 }
 
 func NewEmptyQueryResult(name string, query string) *QueryResult {

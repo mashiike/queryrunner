@@ -12,6 +12,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/fatih/color"
 	"github.com/fujiwara/logutils"
 	"github.com/handlename/ssmwrap"
@@ -115,7 +116,36 @@ func _main() error {
 		}
 		return nil
 	}
-
+	if strings.HasPrefix(os.Getenv("AWS_EXECUTION_ENV"), "AWS_Lambda") || os.Getenv("AWS_LAMBDA_RUNTIME_API") != "" {
+		log.Println("[info] run on AWS Lambda runtime")
+		lambda.Start(func(ctx context.Context, p *params) (*response, error) {
+			resp := &response{
+				Results: make([]*queryrunner.QueryResult, len(p.Queries)),
+			}
+			eg, egctx := errgroup.WithContext(ctx)
+			for i, queryName := range p.Queries {
+				query, ok := queries.Get(queryName)
+				if !ok {
+					return nil, fmt.Errorf("query `%s` is not found, skip this query", queryName)
+				}
+				index := i
+				eg.Go(func() error {
+					log.Printf("[debug] start run `%s` runner type `%s`", query.Name(), query.RunnerType())
+					result, err := query.Run(egctx, nil, nil)
+					if err != nil {
+						return err
+					}
+					log.Printf("[debug] finish run `%s` runner type `%s`", query.Name(), query.RunnerType())
+					resp.Results[index] = result
+					return nil
+				})
+			}
+			if err := eg.Wait(); err != nil {
+				return nil, err
+			}
+			return resp, nil
+		})
+	}
 	var p params
 	if flag.NArg() > 0 {
 		p.Queries = flag.Args()
@@ -171,5 +201,9 @@ func flagFilter(visitFunc func(f *flag.Flag)) func(f *flag.Flag) {
 }
 
 type params struct {
-	Queries []string `json:"queries,omitempty"`
+	Queries []string `json:"queries"`
+}
+
+type response struct {
+	Results []*queryrunner.QueryResult `json:"results"`
 }
