@@ -127,13 +127,13 @@ func (r *QueryRunner) Prepare(base *queryrunner.QueryBase) (queryrunner.Prepared
 	startTimeValue, _ := q.StartTime.Value(ctx)
 	if startTimeValue.IsKnown() && startTimeValue.IsNull() {
 		var parseDiags hcl.Diagnostics
-		q.StartTime, parseDiags = hclsyntax.ParseExpression([]byte(`strftime_in_zone("%Y-%m-%dT%H:%M:%S%z", "UTC", runtime.event.alert.opened_at)`), "default_start_time.hcl", hcl.InitialPos)
+		q.StartTime, parseDiags = hclsyntax.ParseExpression([]byte(`strftime_in_zone("%Y-%m-%dT%H:%M:%S%z", "UTC", now() - duration("15m"))`), "default_start_time.hcl", hcl.InitialPos)
 		diags = append(diags, parseDiags...)
 	}
 	endTimeValue, _ := q.EndTime.Value(ctx)
 	if endTimeValue.IsKnown() && endTimeValue.IsNull() {
 		var parseDiags hcl.Diagnostics
-		q.EndTime, parseDiags = hclsyntax.ParseExpression([]byte(`strftime_in_zone("%Y-%m-%dT%H:%M:%S%z", "UTC", runtime.event.alert.closed_at)`), "default_end_time.hcl", hcl.InitialPos)
+		q.EndTime, parseDiags = hclsyntax.ParseExpression([]byte(`strftime_in_zone("%Y-%m-%dT%H:%M:%S%z", "UTC", now())`), "default_end_time.hcl", hcl.InitialPos)
 		diags = append(diags, parseDiags...)
 	}
 	return q, diags
