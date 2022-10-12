@@ -78,11 +78,8 @@ type PreparedQuery struct {
 	Query     hcl.Expression `hcl:"query"`
 	Limit     *int32         `hcl:"limit"`
 
-	LogGroupName  *string  `hcl:"log_group_name"`
-	LogGroupNames []string `hcl:"log_group_names,optional"`
-	IgnoreFields  []string `hcl:"ignore_fields,optional"`
-
-	Attrs hcl.Attributes `hcl:",body"`
+	LogGroupNames hcl.Expression `hcl:"log_group_names,optional"`
+	IgnoreFields  []string       `hcl:"ignore_fields,optional"`
 }
 
 func (r *QueryRunner) Prepare(base *queryrunner.QueryBase) (queryrunner.PreparedQuery, hcl.Diagnostics) {
@@ -99,29 +96,21 @@ func (r *QueryRunner) Prepare(base *queryrunner.QueryBase) (queryrunner.Prepared
 	}
 
 	log.Printf("[debug] end cloudwatch_logs_insights query block %d error diags", len(diags.Errs()))
-	var logGroupNameRange, logGroupNamesRange *hcl.Range
-	for _, attr := range q.Attrs {
-		switch attr.Name {
-		case "log_group_name":
-			logGroupNameRange = attr.Range.Ptr()
-		case "log_group_names":
-			logGroupNamesRange = attr.Range.Ptr()
-		}
-	}
-	if logGroupNameRange != nil && logGroupNamesRange != nil {
+	logGroupNamesValue, _ := q.LogGroupNames.Value(ctx)
+	if logGroupNamesValue.IsKnown() && logGroupNamesValue.IsNull() {
 		diags = append(diags, &hcl.Diagnostic{
 			Severity: hcl.DiagError,
 			Summary:  "Invalid log_group_names",
-			Detail:   fmt.Sprintf("log_group_name alerady declared on %s. required attribute log_group_name or log_group_names, but not both.", logGroupNameRange.String()),
-			Subject:  logGroupNamesRange,
+			Detail:   "required attribute log_group_names",
+			Subject:  q.LogGroupNames.Range().Ptr(),
 		})
 	}
-	if logGroupNameRange == nil && logGroupNamesRange == nil {
+	if logGroupNamesValue.IsKnown() && logGroupNamesValue.Type().IsListType() {
 		diags = append(diags, &hcl.Diagnostic{
 			Severity: hcl.DiagError,
-			Summary:  "Invalid log_group_name",
-			Detail:   "required attribute log_group_name or log_group_names",
-			Subject:  body.MissingItemRange().Ptr(),
+			Summary:  "Invalid log_group_names",
+			Detail:   "log_group_names is must string list",
+			Subject:  q.LogGroupNames.Range().Ptr(),
 		})
 	}
 	startTimeValue, _ := q.StartTime.Value(ctx)
@@ -229,15 +218,47 @@ func (q *PreparedQuery) Run(ctx context.Context, variables map[string]cty.Value,
 	if err != nil {
 		return nil, fmt.Errorf("parse end_time: %w", err)
 	}
-
 	params := &cloudwatchlogs.StartQueryInput{
-		StartTime:     aws.Int64(startTime.Unix()),
-		EndTime:       aws.Int64(endTime.Unix()),
-		QueryString:   aws.String(query),
-		Limit:         q.Limit,
-		LogGroupName:  q.LogGroupName,
-		LogGroupNames: q.LogGroupNames,
+		StartTime:   aws.Int64(startTime.Unix()),
+		EndTime:     aws.Int64(endTime.Unix()),
+		QueryString: aws.String(query),
+		Limit:       q.Limit,
 	}
+
+	logGroupNamesValue, diags := q.LogGroupNames.Value(evalCtx)
+	if diags.HasErrors() {
+		return nil, diags
+	}
+	if !logGroupNamesValue.IsKnown() {
+		diags = append(diags, &hcl.Diagnostic{
+			Severity: hcl.DiagError,
+			Summary:  "Invalid end_time template",
+			Detail:   "end_time is unknown",
+			Subject:  q.EndTime.Range().Ptr(),
+		})
+		return nil, diags
+	}
+	if logGroupNamesValue.Type() != cty.List(cty.String) {
+		diags = append(diags, &hcl.Diagnostic{
+			Severity: hcl.DiagError,
+			Summary:  "Invalid log_group_names",
+			Detail:   "log_group_names is must string list",
+			Subject:  q.LogGroupNames.Range().Ptr(),
+		})
+		return nil, diags
+	}
+	logGroupNameValues := logGroupNamesValue.AsValueSlice()
+	if len(logGroupNameValues) == 0 {
+		return nil, errors.New("missing log_group_names")
+	}
+	if len(logGroupNameValues) == 1 {
+		params.LogGroupName = aws.String(logGroupNameValues[0].AsString())
+	} else {
+		params.LogGroupNames = lo.Map(logGroupNameValues, func(v cty.Value, _ int) string {
+			return v.AsString()
+		})
+	}
+
 	return q.runner.RunQuery(ctx, q.Name(), params, q.IgnoreFields)
 }
 
