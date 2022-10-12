@@ -152,15 +152,6 @@ func (r *QueryRunner) Prepare(base *queryrunner.QueryBase) (queryrunner.Prepared
 		})
 		return nil, diags
 	}
-	if value.Type() != cty.String {
-		diags = append(diags, &hcl.Diagnostic{
-			Severity: hcl.DiagError,
-			Summary:  "Invalid SQL template",
-			Detail:   "sql is not string",
-			Subject:  q.SQL.Range().Ptr(),
-		})
-		return nil, diags
-	}
 	return q, diags
 }
 
@@ -172,6 +163,15 @@ func (q *PreparedQuery) Run(ctx context.Context, variables map[string]cty.Value,
 	}
 	if !value.IsKnown() {
 		return nil, errors.New("SQL is unknown")
+	}
+	if value.Type() != cty.String {
+		diags = append(diags, &hcl.Diagnostic{
+			Severity: hcl.DiagError,
+			Summary:  "Invalid SQL template",
+			Detail:   "sql is not string",
+			Subject:  q.SQL.Range().Ptr(),
+		})
+		return nil, diags
 	}
 	return q.runner.RunQuery(ctx, q.Name(), value.AsString())
 }

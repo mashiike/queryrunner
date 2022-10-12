@@ -125,22 +125,22 @@ func (r *QueryRunner) Prepare(base *queryrunner.QueryBase) (queryrunner.Prepared
 	}
 
 	expressionValue, _ := q.Expression.Value(ctx)
-	if expressionValue.Type() != cty.String {
+	if expressionValue.IsKnown() && expressionValue.AsString() == "" {
 		diags = append(diags, &hcl.Diagnostic{
 			Severity: hcl.DiagError,
 			Summary:  "Invalid expression template",
-			Detail:   "expression is not string",
+			Detail:   "expression is empty",
 			Subject:  q.Expression.Range().Ptr(),
 		})
 		return nil, diags
 	}
 
 	objectKeyPrefixValue, _ := q.ObjectKeyPrefix.Value(ctx)
-	if objectKeyPrefixValue.Type() != cty.String {
+	if objectKeyPrefixValue.IsKnown() && objectKeyPrefixValue.AsString() == "" {
 		diags = append(diags, &hcl.Diagnostic{
 			Severity: hcl.DiagError,
 			Summary:  "Invalid object_key_prefix template",
-			Detail:   "object_key_prefix is not string",
+			Detail:   "required attribute `object_key_prefix`",
 			Subject:  q.ObjectKeyPrefix.Range().Ptr(),
 		})
 		return nil, diags
@@ -313,6 +313,15 @@ func (q *PreparedQuery) Run(ctx context.Context, variables map[string]cty.Value,
 		})
 		return nil, diags
 	}
+	if expressionValue.Type() != cty.String {
+		diags = append(diags, &hcl.Diagnostic{
+			Severity: hcl.DiagError,
+			Summary:  "Invalid expression template",
+			Detail:   "expression is not string",
+			Subject:  q.Expression.Range().Ptr(),
+		})
+		return nil, diags
+	}
 	expr := expressionValue.AsString()
 	if expr == "" {
 		diags = append(diags, &hcl.Diagnostic{
@@ -333,6 +342,15 @@ func (q *PreparedQuery) Run(ctx context.Context, variables map[string]cty.Value,
 			Severity: hcl.DiagError,
 			Summary:  "Invalid object_key_prefix template",
 			Detail:   "object_key_prefix is unknown",
+			Subject:  q.ObjectKeyPrefix.Range().Ptr(),
+		})
+		return nil, diags
+	}
+	if objectKeyPrefixValue.Type() != cty.String {
+		diags = append(diags, &hcl.Diagnostic{
+			Severity: hcl.DiagError,
+			Summary:  "Invalid object_key_prefix template",
+			Detail:   "object_key_prefix is not string",
 			Subject:  q.ObjectKeyPrefix.Range().Ptr(),
 		})
 		return nil, diags
