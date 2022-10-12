@@ -58,8 +58,8 @@ const usage = `query-runner is a helper tool that makes querying several AWS ser
   options:
     -c, --config        config dir, config format is HCL (defualt: ~/.config/query-runner/)
     -l, --list          displays a list of formats
-	-o, --output        output format [json|table|markdown|borderless|vertical] (default:json)
-	-v, --variables     variables json
+    -o, --output        output format [json|table|markdown|borderless|vertical] (default:json)
+    -v, --variables     variables json
     -h, --help          prints help information
         --log-level     log output level (default: info)
 `
