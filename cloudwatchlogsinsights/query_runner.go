@@ -238,7 +238,7 @@ func (q *PreparedQuery) Run(ctx context.Context, variables map[string]cty.Value,
 		})
 		return nil, diags
 	}
-	if logGroupNamesValue.Type() != cty.List(cty.String) {
+	if !logGroupNamesValue.Type().IsListType() {
 		diags = append(diags, &hcl.Diagnostic{
 			Severity: hcl.DiagError,
 			Summary:  "Invalid log_group_names",
