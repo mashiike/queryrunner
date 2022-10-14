@@ -116,19 +116,17 @@ func (r *QueryRunner) Prepare(base *queryrunner.QueryBase) (queryrunner.Prepared
 	startTimeValue, _ := q.StartTime.Value(ctx)
 	if startTimeValue.IsKnown() && startTimeValue.IsNull() {
 		var parseDiags hcl.Diagnostics
-		q.StartTime, parseDiags = hclsyntax.ParseExpression([]byte(`strftime_in_zone("%Y-%m-%dT%H:%M:%S%z", "UTC", now() - duration("15m"))`), "default_start_time.hcl", hcl.InitialPos)
+		q.StartTime, parseDiags = hclsyntax.ParseExpression([]byte(`now() - duration("15m")`), "default_start_time.hcl", hcl.InitialPos)
 		diags = append(diags, parseDiags...)
 	}
 	endTimeValue, _ := q.EndTime.Value(ctx)
 	if endTimeValue.IsKnown() && endTimeValue.IsNull() {
 		var parseDiags hcl.Diagnostics
-		q.EndTime, parseDiags = hclsyntax.ParseExpression([]byte(`strftime_in_zone("%Y-%m-%dT%H:%M:%S%z", "UTC", now())`), "default_end_time.hcl", hcl.InitialPos)
+		q.EndTime, parseDiags = hclsyntax.ParseExpression([]byte(`now()`), "default_end_time.hcl", hcl.InitialPos)
 		diags = append(diags, parseDiags...)
 	}
 	return q, diags
 }
-
-const layout = "2006-01-02T15:04:05-0700"
 
 func (q *PreparedQuery) Run(ctx context.Context, variables map[string]cty.Value, functions map[string]function.Function) (*queryrunner.QueryResult, error) {
 	evalCtx := q.NewEvalContext(variables, functions)
@@ -178,19 +176,17 @@ func (q *PreparedQuery) Run(ctx context.Context, variables map[string]cty.Value,
 		})
 		return nil, diags
 	}
-	if startTimeValue.Type() != cty.String {
+	if startTimeValue.Type() != cty.Number {
 		diags = append(diags, &hcl.Diagnostic{
 			Severity: hcl.DiagError,
 			Summary:  "Invalid start_time template",
-			Detail:   "start_time is not string",
+			Detail:   "start_time is not number",
 			Subject:  q.StartTime.Range().Ptr(),
 		})
+		return nil, diags
 	}
-
-	startTime, err := time.Parse(layout, startTimeValue.AsString())
-	if err != nil {
-		return nil, fmt.Errorf("parse start_time: %w", err)
-	}
+	startTimeEpoch, _ := startTimeValue.AsBigFloat().Float64()
+	startTime := time.Unix(0, int64(startTimeEpoch*float64(time.Second)))
 
 	endTimeValue, diags := q.EndTime.Value(evalCtx)
 	if diags.HasErrors() {
@@ -205,18 +201,18 @@ func (q *PreparedQuery) Run(ctx context.Context, variables map[string]cty.Value,
 		})
 		return nil, diags
 	}
-	if endTimeValue.Type() != cty.String {
+	if endTimeValue.Type() != cty.Number {
 		diags = append(diags, &hcl.Diagnostic{
 			Severity: hcl.DiagError,
 			Summary:  "Invalid end_time template",
-			Detail:   "end_time is not string",
+			Detail:   "end_time is not number",
 			Subject:  q.EndTime.Range().Ptr(),
 		})
+		return nil, diags
 	}
-	endTime, err := time.Parse(layout, endTimeValue.AsString())
-	if err != nil {
-		return nil, fmt.Errorf("parse end_time: %w", err)
-	}
+	endTimeEpoch, _ := startTimeValue.AsBigFloat().Float64()
+	endTime := time.Unix(0, int64(endTimeEpoch*float64(time.Second)))
+
 	params := &cloudwatchlogs.StartQueryInput{
 		StartTime:   aws.Int64(startTime.Unix()),
 		EndTime:     aws.Int64(endTime.Unix()),
@@ -245,6 +241,7 @@ func (q *PreparedQuery) Run(ctx context.Context, variables map[string]cty.Value,
 			Detail:   "log_group_names is must string list",
 			Subject:  q.LogGroupNames.Range().Ptr(),
 		})
+		return nil, diags
 	}
 	if len(logGroupNameValues) == 0 {
 		return nil, errors.New("missing log_group_names")
