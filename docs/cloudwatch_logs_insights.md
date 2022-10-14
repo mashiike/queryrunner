@@ -9,7 +9,7 @@ query_runner "cloudwatch_logs_insights" "default" {
 
 query "cw_logs" {
   runner = query_runner.cloudwatch_logs_insights.default
-  start_time = strftime_in_zone("%Y-%m-%dT%H:%M:%S%z", "UTC", now() - duration("15m"))
+  start_time = now() - duration("15m")
   query  = <<EOT
 fields @timestamp, @message
 | sort @timestamp desc
