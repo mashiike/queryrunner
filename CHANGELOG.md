@@ -1,5 +1,8 @@
 # Changelog
 
+## [v0.2.0](https://github.com/mashiike/queryrunner/compare/v0.1.1...v0.2.0) - 2022-10-14
+- start_time and end_time to second by @mashiike in https://github.com/mashiike/queryrunner/pull/4
+
 ## [v0.1.1](https://github.com/mashiike/queryrunner/compare/v0.1.0...v0.1.1) - 2022-10-12
 - type check is runtime by @mashiike in https://github.com/mashiike/queryrunner/pull/2
 
