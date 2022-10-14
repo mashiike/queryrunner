@@ -22,7 +22,7 @@ func DecodeBody(body hcl.Body, ctx *hcl.EvalContext) (PreparedQueries, hcl.Body,
 		},
 	}
 	content, remain, diags := body.PartialContent(schema)
-	diags = append(diags, hclconfig.RestrictUniqueBlockLabels(content)...)
+	diags = append(diags, hclconfig.RestrictUniqueBlockLabels(content, "query_runner", "query")...)
 
 	queryRunnerBlocks := make(hcl.Blocks, 0)
 	queryBlocks := make(hcl.Blocks, 0)

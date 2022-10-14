@@ -130,6 +130,95 @@ The argument "runner" is required, but no definition was found.`
 	require.EqualValues(t, strings.TrimSpace(expected), strings.TrimSpace(builder.String()))
 }
 
+func TestDecodeBodyDuplicateQueryRunner(t *testing.T) {
+	err := queryrunner.Register(&queryrunner.QueryRunnerDefinition{
+		TypeName: "dummy",
+		BuildQueryRunnerFunc: func(name string, body hcl.Body, ctx *hcl.EvalContext) (queryrunner.QueryRunner, hcl.Diagnostics) {
+			runner := &dummyQueryRunner{
+				name: name,
+			}
+			diags := gohcl.DecodeBody(body, ctx, runner)
+			return runner, diags
+		},
+	})
+	require.NoError(t, err)
+	parser := hclparse.NewParser()
+	src := []byte(`
+	query_runner "dummy" "default" {
+		columns = ["id", "name", "age"]
+	}
+	query_runner "dummy" "default" {
+		columns = ["id", "name", "age"]
+	}
+	`)
+	file, diags := parser.ParseHCL(src, "config.hcl")
+	require.False(t, diags.HasErrors())
+	_, _, diags = queryrunner.DecodeBody(file.Body, &hcl.EvalContext{})
+	require.True(t, diags.HasErrors(), "has errors")
+
+	var builder strings.Builder
+	w := hcl.NewDiagnosticTextWriter(&builder, parser.Files(), 400, false)
+	w.WriteDiagnostics(diags)
+	expected := `
+Error: Duplicate query_runner "dummy" configuration
+
+  on config.hcl line 5, in query_runner "dummy" "default":
+   5: 	query_runner "dummy" "default" {
+
+A dummy query_runner named "default" was already declared at config.hcl:2,2-32. query_runner names must unique per type in a configuration`
+	require.EqualValues(t, strings.TrimSpace(expected), strings.TrimSpace(builder.String()))
+}
+
+func TestDecodeBodyDuplicateQuery(t *testing.T) {
+	err := queryrunner.Register(&queryrunner.QueryRunnerDefinition{
+		TypeName: "dummy",
+		BuildQueryRunnerFunc: func(name string, body hcl.Body, ctx *hcl.EvalContext) (queryrunner.QueryRunner, hcl.Diagnostics) {
+			runner := &dummyQueryRunner{
+				name: name,
+			}
+			diags := gohcl.DecodeBody(body, ctx, runner)
+			return runner, diags
+		},
+	})
+	require.NoError(t, err)
+	parser := hclparse.NewParser()
+	src := []byte(`
+	query_runner "dummy" "default" {
+		columns = ["id", "name", "age"]
+	}
+	query "default" {
+		runner = query_runner.dummy.default
+		rows = [
+			[ "1", "hoge", "13"],
+			[ "2", "fuga", "26"],
+		]
+	}
+	query "default" {
+		runner = query_runner.dummy.default
+		rows = [
+			[ "1", "hoge", "13"],
+			[ "2", "fuga", "26"],
+		]
+	}
+	`)
+	file, diags := parser.ParseHCL(src, "config.hcl")
+	require.False(t, diags.HasErrors())
+	_, _, diags = queryrunner.DecodeBody(file.Body, &hcl.EvalContext{})
+	require.True(t, diags.HasErrors(), "has errors")
+
+	var builder strings.Builder
+	w := hcl.NewDiagnosticTextWriter(&builder, parser.Files(), 400, false)
+	w.WriteDiagnostics(diags)
+	expected := `
+Error: Duplicate query declaration
+
+  on config.hcl line 12, in query "default":
+  12: 	query "default" {
+
+A query named "default" was already declared at config.hcl:5,2-17. query names must unique within a configuration`
+	require.EqualValues(t, strings.TrimSpace(expected), strings.TrimSpace(builder.String()))
+}
+
 func TestDecodeBodyQueryRunnerNotFound(t *testing.T) {
 	parser := hclparse.NewParser()
 	src := []byte(`
