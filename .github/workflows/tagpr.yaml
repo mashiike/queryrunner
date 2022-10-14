@@ -21,6 +21,3 @@ jobs:
           tag: ${{ steps.tagpr.outputs.tag }}
           token: ${{ secrets.GITHUB_TOKEN }}
         if: ${{ steps.tagpr.outputs.tag != '' }}
-      - id: redo-tagpr
-        uses: Songmu/tagpr@v1
-        if: ${{ steps.tagpr.outputs.tag != '' }}
