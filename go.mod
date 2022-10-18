@@ -20,7 +20,7 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/samber/lo v1.33.0
 	github.com/stretchr/testify v1.8.0
-	github.com/zclconf/go-cty v1.11.0
+	github.com/zclconf/go-cty v1.11.1
 	golang.org/x/sync v0.0.0-20220929204114-8fcdb60fdcc0
 )
 
