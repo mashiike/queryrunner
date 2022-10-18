@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.2.3](https://github.com/mashiike/queryrunner/compare/v0.2.2...v0.2.3) - 2022-10-18
+- Bump github.com/samber/lo from 1.32.0 to 1.33.0 by @dependabot in https://github.com/mashiike/queryrunner/pull/11
+- Bump github.com/zclconf/go-cty from 1.11.0 to 1.11.1 by @dependabot in https://github.com/mashiike/queryrunner/pull/10
+
 ## [v0.2.2](https://github.com/mashiike/queryrunner/compare/v0.2.1...v0.2.2) - 2022-10-14
 - fix query and query_runner duplicate check by @mashiike in https://github.com/mashiike/queryrunner/pull/8
 
