@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/gohcl"
 	"github.com/hashicorp/hcl/v2/hclparse"
+	"github.com/mashiike/hclconfig"
 	"github.com/mashiike/queryrunner"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -44,11 +45,16 @@ type dummyPreparedQuery struct {
 	*queryrunner.QueryBase
 	columns []string
 
-	Rows [][]string `hcl:"rows"`
+	Rows hcl.Expression `hcl:"rows"`
 }
 
-func (q *dummyPreparedQuery) Run(ctx context.Context, _ map[string]cty.Value, _ map[string]function.Function) (*queryrunner.QueryResult, error) {
-	return queryrunner.NewQueryResult(q.Name(), "", q.columns, q.Rows), nil
+func (q *dummyPreparedQuery) Run(ctx context.Context, v map[string]cty.Value, f map[string]function.Function) (*queryrunner.QueryResult, error) {
+	var rows [][]string
+	diags := gohcl.DecodeExpression(q.Rows, q.NewEvalContext(v, f), &rows)
+	if diags.HasErrors() {
+		return nil, diags
+	}
+	return queryrunner.NewQueryResult(q.Name(), "", q.columns, rows), nil
 }
 
 func TestDecodeBody(t *testing.T) {
@@ -242,4 +248,71 @@ Error: Invalid Relation
 
 query_runner "not_found.default" is not found`
 	require.EqualValues(t, strings.TrimSpace(expected), strings.TrimSpace(builder.String()))
+}
+
+func TestDecodeBodyFunctionValueChain(t *testing.T) {
+	err := queryrunner.Register(&queryrunner.QueryRunnerDefinition{
+		TypeName: "dummy",
+		BuildQueryRunnerFunc: func(name string, body hcl.Body, ctx *hcl.EvalContext) (queryrunner.QueryRunner, hcl.Diagnostics) {
+			runner := &dummyQueryRunner{
+				name: name,
+			}
+			diags := gohcl.DecodeBody(body, ctx, runner)
+			return runner, diags
+		},
+	})
+	require.NoError(t, err)
+
+	parser := hclparse.NewParser()
+	src := []byte(`
+	query_runner "dummy" "default" {
+		columns = ["id", "name", "age"]
+	}
+
+	query "default" {
+		runner = query_runner.dummy.default
+		rows = jsondecode(
+			templatefile("testdata/rows.json", {
+				start = var.start
+			})
+		)
+	}
+
+	extra = "hoge"
+	`)
+	file, diags := parser.ParseHCL(src, "config.hcl")
+	if !assert.False(t, diags.HasErrors()) {
+		var builder strings.Builder
+		w := hcl.NewDiagnosticTextWriter(&builder, parser.Files(), 400, false)
+		w.WriteDiagnostics(diags)
+		t.Log(builder.String())
+		t.FailNow()
+	}
+	queries, remain, diags := queryrunner.DecodeBody(file.Body, hclconfig.NewEvalContext("./"))
+	if !assert.False(t, diags.HasErrors()) {
+		var builder strings.Builder
+		w := hcl.NewDiagnosticTextWriter(&builder, parser.Files(), 400, false)
+		w.WriteDiagnostics(diags)
+		t.Log(builder.String())
+		t.FailNow()
+	}
+	attrs, _ := remain.JustAttributes()
+	require.Equal(t, 1, len(attrs))
+	query, ok := queries.Get("default")
+	require.True(t, ok)
+	result, err := query.Run(context.Background(), map[string]cty.Value{
+		"var": cty.ObjectVal(map[string]cty.Value{
+			"start": cty.NumberIntVal(1),
+		}),
+	}, nil)
+	require.NoError(t, err)
+	expected := strings.TrimSpace(`
++----+------+-----+
+| ID | NAME | AGE |
++----+------+-----+
+|  1 | hoge |  13 |
+|  2 | fuga |  26 |
++----+------+-----+
+`)
+	require.Equal(t, expected, strings.TrimSpace(result.ToTable()))
 }
