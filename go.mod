@@ -18,7 +18,7 @@ require (
 	github.com/ken39arg/go-flagx v0.0.0-20220608183922-7cf7c6c0093c
 	github.com/mashiike/hclconfig v0.7.0
 	github.com/olekukonko/tablewriter v0.0.5
-	github.com/samber/lo v1.32.0
+	github.com/samber/lo v1.33.0
 	github.com/stretchr/testify v1.8.0
 	github.com/zclconf/go-cty v1.11.0
 	golang.org/x/sync v0.0.0-20220929204114-8fcdb60fdcc0
