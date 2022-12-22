@@ -42,6 +42,9 @@ func DecodeBody(body hcl.Body, ctx *hcl.EvalContext) (PreparedQueries, hcl.Body,
 		diags = append(diags, buildDiags...)
 		runners = append(runners, query)
 	}
+	if diags.HasErrors() {
+		return nil, remain, diags
+	}
 	queries := make(PreparedQueries, 0, len(queryBlocks))
 	for _, block := range queryBlocks {
 		base := &QueryBase{
