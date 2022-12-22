@@ -136,6 +136,32 @@ The argument "runner" is required, but no definition was found.`
 	require.EqualValues(t, strings.TrimSpace(expected), strings.TrimSpace(builder.String()))
 }
 
+func TestDecodeBodyMissingQueryRunner(t *testing.T) {
+	parser := hclparse.NewParser()
+	src := []byte(`
+	query_runner "invalid" "default" {
+		columns = ["id", "name", "age"]
+	}
+	`)
+	file, diags := parser.ParseHCL(src, "config.hcl")
+	require.False(t, diags.HasErrors())
+	_, _, diags = queryrunner.DecodeBody(file.Body, &hcl.EvalContext{})
+	require.True(t, diags.HasErrors(), "has errors")
+
+	var builder strings.Builder
+	w := hcl.NewDiagnosticTextWriter(&builder, parser.Files(), 400, false)
+	w.WriteDiagnostics(diags)
+	expected := `
+Error: Invalid query_runner type
+
+  on config.hcl line 2, in query_runner "invalid" "default":
+   2: 	query_runner "invalid" "default" {
+
+The query runner type "invalid" is invalid. maybe not implemented or typo
+`
+	require.EqualValues(t, strings.TrimSpace(expected), strings.TrimSpace(builder.String()))
+}
+
 func TestDecodeBodyDuplicateQueryRunner(t *testing.T) {
 	err := queryrunner.Register(&queryrunner.QueryRunnerDefinition{
 		TypeName: "dummy",
