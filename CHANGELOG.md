@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.3.0](https://github.com/mashiike/queryrunner/compare/v0.2.3...v0.3.0) - 2022-12-22
+- Feature/fix panic runner not found by @mashiike in https://github.com/mashiike/queryrunner/pull/35
+- Bump github.com/aws/aws-sdk-go-v2 from 1.16.16 to 1.17.3 by @dependabot in https://github.com/mashiike/queryrunner/pull/33
+- Bump github.com/stretchr/testify from 1.8.0 to 1.8.1 by @dependabot in https://github.com/mashiike/queryrunner/pull/14
+- Bump github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs from 1.15.20 to 1.17.3 by @dependabot in https://github.com/mashiike/queryrunner/pull/31
+
 ## [v0.2.3](https://github.com/mashiike/queryrunner/compare/v0.2.2...v0.2.3) - 2022-10-18
 - Bump github.com/samber/lo from 1.32.0 to 1.33.0 by @dependabot in https://github.com/mashiike/queryrunner/pull/11
 - Bump github.com/zclconf/go-cty from 1.11.0 to 1.11.1 by @dependabot in https://github.com/mashiike/queryrunner/pull/10
