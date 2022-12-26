@@ -14,13 +14,13 @@ require (
 	github.com/fatih/color v1.13.0
 	github.com/fujiwara/logutils v1.1.0
 	github.com/handlename/ssmwrap v1.2.0
-	github.com/hashicorp/hcl/v2 v2.14.1
+	github.com/hashicorp/hcl/v2 v2.15.0
 	github.com/ken39arg/go-flagx v0.0.0-20220608183922-7cf7c6c0093c
-	github.com/mashiike/hclconfig v0.7.0
+	github.com/mashiike/hclconfig v0.8.0
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/samber/lo v1.33.0
 	github.com/stretchr/testify v1.8.1
-	github.com/zclconf/go-cty v1.11.1
+	github.com/zclconf/go-cty v1.12.1
 	golang.org/x/sync v0.0.0-20220929204114-8fcdb60fdcc0
 )
 
@@ -55,10 +55,10 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.4.2 // indirect
 	github.com/sergi/go-diff v1.2.0 // indirect
-	github.com/zclconf/go-cty-yaml v1.0.2 // indirect
+	github.com/zclconf/go-cty-yaml v1.0.3 // indirect
 	golang.org/x/exp v0.0.0-20221012211006-4de253d81b95 // indirect
-	golang.org/x/sys v0.0.0-20221013171732-95e765b1cc43 // indirect
-	golang.org/x/term v0.0.0-20220919170432-7a66f970e087 // indirect
-	golang.org/x/text v0.3.8 // indirect
+	golang.org/x/sys v0.3.0 // indirect
+	golang.org/x/term v0.3.0 // indirect
+	golang.org/x/text v0.5.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
