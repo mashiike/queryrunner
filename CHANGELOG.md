@@ -1,5 +1,10 @@
 # Changelog
 
+## [v0.3.1](https://github.com/mashiike/queryrunner/compare/v0.3.0...v0.3.1) - 2023-05-09
+- The value in endTimeEpoch was not able to query with the correct period in startTimeValue by @mashiike in https://github.com/mashiike/queryrunner/pull/62
+- Bump github.com/aws/aws-sdk-go-v2/config from 1.17.8 to 1.18.18 by @dependabot in https://github.com/mashiike/queryrunner/pull/61
+- Bump github.com/mashiike/hclconfig from 0.7.0 to 0.8.0 by @dependabot in https://github.com/mashiike/queryrunner/pull/38
+
 ## [v0.3.0](https://github.com/mashiike/queryrunner/compare/v0.2.3...v0.3.0) - 2022-12-22
 - Feature/fix panic runner not found by @mashiike in https://github.com/mashiike/queryrunner/pull/35
 - Bump github.com/aws/aws-sdk-go-v2 from 1.16.16 to 1.17.3 by @dependabot in https://github.com/mashiike/queryrunner/pull/33
