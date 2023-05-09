@@ -210,7 +210,7 @@ func (q *PreparedQuery) Run(ctx context.Context, variables map[string]cty.Value,
 		})
 		return nil, diags
 	}
-	endTimeEpoch, _ := startTimeValue.AsBigFloat().Float64()
+	endTimeEpoch, _ := endTimeValue.AsBigFloat().Float64()
 	endTime := time.Unix(0, int64(endTimeEpoch*float64(time.Second)))
 
 	params := &cloudwatchlogs.StartQueryInput{
