@@ -13,7 +13,7 @@ require (
 	github.com/dustin/go-humanize v1.0.0
 	github.com/fatih/color v1.13.0
 	github.com/fujiwara/logutils v1.1.0
-	github.com/handlename/ssmwrap v1.2.0
+	github.com/handlename/ssmwrap v1.2.1
 	github.com/hashicorp/hcl/v2 v2.16.2
 	github.com/ken39arg/go-flagx v0.0.0-20220608183922-7cf7c6c0093c
 	github.com/mashiike/hclconfig v0.8.0
@@ -27,7 +27,7 @@ require (
 require (
 	github.com/Songmu/flextime v0.1.0 // indirect
 	github.com/apparentlymart/go-textseg/v13 v13.0.0 // indirect
-	github.com/aws/aws-sdk-go v1.38.71 // indirect
+	github.com/aws/aws-sdk-go v1.44.118 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.4.8 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.13.17 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.13.0 // indirect
