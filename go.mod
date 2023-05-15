@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/agext/levenshtein v1.2.3
-	github.com/aws/aws-lambda-go v1.34.1
+	github.com/aws/aws-lambda-go v1.41.0
 	github.com/aws/aws-sdk-go-v2 v1.17.6
 	github.com/aws/aws-sdk-go-v2/config v1.18.18
 	github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.17.3
